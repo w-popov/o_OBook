@@ -31,7 +31,8 @@ export default {
   },
   server: {
     port: 9090,
-    hot: true
+    hot: true,
+    open: '/o_OBook/' 
   },
   css: {
      preprocessorOptions: {
