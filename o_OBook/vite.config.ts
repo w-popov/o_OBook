@@ -10,7 +10,7 @@ const __dirname = dirname(__filename);
 
 export default { 
   root: resolve(__dirname, './'), 
-  base: 'https://w-popov.github.io/o_OBook/',
+  base: '/o_OBook/',
    
   build: {
     outDir: '../docs',
