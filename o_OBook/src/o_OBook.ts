@@ -141,7 +141,7 @@ export class o_OBook extends LitElement {
       render: () => html`<p-home></p-home>`
     },
     {
-      path: `/p-cbits`,
+      path: "/o_OBook/p-cbits",
       enter: async (): Promise<boolean> => { 
         await import('./pages/p-cbits.js'); 
         return true;
@@ -150,7 +150,7 @@ export class o_OBook extends LitElement {
     },
     {
       // 404
-      path: `/*`,
+      path: `/o_OBook/*`,
       enter: async (): Promise<boolean> => { 
         await import('./pages/p-not-found.js'); 
         return true;
@@ -256,7 +256,7 @@ export class o_OBook extends LitElement {
                   <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-body-secondary text-uppercase">
                   <span>Си</span>
                   </h6>
-                  <a class="nav-link d-flex align-items-center gap-2 active" aria-current="page" href="/p-cbits" @click=${this.closeOffcanvas}>
+                  <a class="nav-link d-flex align-items-center gap-2 active" aria-current="page" href="/o_OBook/p-cbits" @click=${this.closeOffcanvas}>
                     Битовые операции
                   </a>
                 </li>
