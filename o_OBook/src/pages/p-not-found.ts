@@ -9,7 +9,7 @@ export class XNotFound extends LitElement {
     return html`
       <h1>Ошибка 404</h1>
       <p>К сожалению, запрашиваемая страница не существует.</p>
-      <a href="/">Вернуться на главную</a>
+      <a href="/o_OBook">Вернуться на главную</a>
     `;
   }
 }
