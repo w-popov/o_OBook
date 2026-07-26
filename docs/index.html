@@ -15,8 +15,8 @@
     `}},Nl.styles=Gs`h1 { color: #333; }`,Nl),Pl=Sl([rl(`p-cbits`)],Pl)})),Il=n({XNotFound:()=>Rl}),Ll,Rl,zl=t((()=>{nl(),pl(),Cl(),Rl=(Ll=class extends Qc{render(){return Fc`
       <h1>Ошибка 404</h1>
       <p>К сожалению, запрашиваемая страница не существует.</p>
-      <a href="/">Вернуться на главную</a>
-    `}},Ll.styles=Gs`:host { display: block; color: red; }`,Ll),Rl=Sl([rl(`p-not-found`)],Rl)}));nl(),pl(),Cl();var Bl,Vl=(Bl=class extends Qc{constructor(...e){super(...e),this.offcanvas=null,this.router=new xl(this,[{path:`/o_OBook`,enter:async()=>(await Dl(()=>Promise.resolve().then(()=>(jl(),Ol)),void 0,import.meta.url),!0),render:()=>Fc`<p-home></p-home>`},{path:`/p-cbits`,enter:async()=>(await Dl(()=>Promise.resolve().then(()=>(Fl(),Ml)),void 0,import.meta.url),!0),render:()=>Fc`<p-cbits></p-cbits>`},{path:`/*`,enter:async()=>(await Dl(()=>Promise.resolve().then(()=>(zl(),Il)),void 0,import.meta.url),!0),render:()=>Fc`<p-not-found></p-not-found>`}])}firstUpdated(){let e=this.shadowRoot?.getElementById(`sidebarMenu`);if(e){this.offcanvas=new Ba(e);let t=e.querySelector(`[data-bs-dismiss="offcanvas"]`);t&&t.addEventListener(`click`,()=>{this.offcanvas?.hide()})}}connectedCallback(){super.connectedCallback()}disconnectedCallback(){super.disconnectedCallback(),this.offcanvas&&this.offcanvas.dispose()}toggleOffcanvas(){this.offcanvas&&this.offcanvas.toggle()}closeOffcanvas(){this.offcanvas&&this.offcanvas.hide()}render(){return Fc`
+      <a href="/o_OBook/">Вернуться на главную</a>
+    `}},Ll.styles=Gs`:host { display: block; color: red; }`,Ll),Rl=Sl([rl(`p-not-found`)],Rl)}));nl(),pl(),Cl();var Bl,Vl=(Bl=class extends Qc{constructor(...e){super(...e),this.offcanvas=null,this.router=new xl(this,[{path:`/o_OBook/`,enter:async()=>(await Dl(()=>Promise.resolve().then(()=>(jl(),Ol)),void 0,import.meta.url),!0),render:()=>Fc`<p-home></p-home>`},{path:`/p-cbits`,enter:async()=>(await Dl(()=>Promise.resolve().then(()=>(Fl(),Ml)),void 0,import.meta.url),!0),render:()=>Fc`<p-cbits></p-cbits>`},{path:`/*`,enter:async()=>(await Dl(()=>Promise.resolve().then(()=>(zl(),Il)),void 0,import.meta.url),!0),render:()=>Fc`<p-not-found></p-not-found>`}])}firstUpdated(){let e=this.shadowRoot?.getElementById(`sidebarMenu`);if(e){this.offcanvas=new Ba(e);let t=e.querySelector(`[data-bs-dismiss="offcanvas"]`);t&&t.addEventListener(`click`,()=>{this.offcanvas?.hide()})}}connectedCallback(){super.connectedCallback()}disconnectedCallback(){super.disconnectedCallback(),this.offcanvas&&this.offcanvas.dispose()}toggleOffcanvas(){this.offcanvas&&this.offcanvas.toggle()}closeOffcanvas(){this.offcanvas&&this.offcanvas.hide()}render(){return Fc`
     <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
       <symbol id="list" viewBox="0 0 15 15">
         <path
@@ -27,7 +27,7 @@
     </svg>
 
     <header class="navbar sticky-top bg-dark flex-md-nowrap p-0 shadow" data-bs-theme="dark">
-      <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6 text-white" href="/o_OBook">Справочник</a>
+      <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6 text-white" href="/o_OBook/">Справочник</a>
       <ul class="navbar-nav flex-row d-md-none">
         <li class="nav-item text-nowrap">
           <button
