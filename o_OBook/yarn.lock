@@ -53,6 +53,13 @@
   dependencies:
     zod "^4.3.6"
 
+"@lit-labs/router@^0.1.4":
+  version "0.1.4"
+  resolved "https://registry.yarnpkg.com/@lit-labs/router/-/router-0.1.4.tgz#843c2ee540c742ff47b2f44e762eb346ccb1a003"
+  integrity sha512-xURH6fOPE0MYfXa1nyl+qTIhZRVWkFa2oggTRodKAI2q/HjA2Va7HEKe7fMm8DdnFE+zEI2aUGnStawKpVh3lQ==
+  dependencies:
+    lit "^2.0.0 || ^3.0.0"
+
 "@lit-labs/ssr-dom-shim@^1.5.0":
   version "1.6.0"
   resolved "https://registry.yarnpkg.com/@lit-labs/ssr-dom-shim/-/ssr-dom-shim-1.6.0.tgz#693e129b809741fd23e98fcb57e41fd3d082db1a"
@@ -574,7 +581,7 @@ lit-html@^3.3.0:
   dependencies:
     "@types/trusted-types" "^2.0.2"
 
-lit@^3.3.3:
+"lit@^2.0.0 || ^3.0.0", lit@^3.3.3:
   version "3.3.3"
   resolved "https://registry.yarnpkg.com/lit/-/lit-3.3.3.tgz#93579885e51a20a772c68482a34706fe1636e8f0"
   integrity sha512-fycuvZg/hkpozL00lm1pEJH5nN/lr9ZXd6mJI2HSN4+Bzc+LDNdEApJ6HFbPkdFNHLvOplIIuJvxkS4XUxqirw==
