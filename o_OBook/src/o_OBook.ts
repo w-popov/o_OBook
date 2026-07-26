@@ -131,7 +131,7 @@ export class o_OBook extends LitElement {
   /* Роутер */
   private router = new Router(this, [
     {
-      path: '/o_OBook',
+      path: '/o_OBook/',
       // Ленивая загрузка файла стратегии перед активацией
       enter: async (): Promise<boolean> => { 
         await import('./pages/p-home.js'); 
@@ -210,7 +210,7 @@ export class o_OBook extends LitElement {
     </svg>
 
     <header class="navbar sticky-top bg-dark flex-md-nowrap p-0 shadow" data-bs-theme="dark">
-      <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6 text-white" href="/o_OBook">Справочник</a>
+      <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6 text-white" href="/o_OBook/">Справочник</a>
       <ul class="navbar-nav flex-row d-md-none">
         <li class="nav-item text-nowrap">
           <button
