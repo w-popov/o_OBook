@@ -7,21 +7,6 @@
     <title>o_OBook</title>
     <script type="module" src="js/main.js"></script>
     <script type="module" src="src/o_OBook.ts"></script>
-    <script type="text/javascript">
-    (function(l) {
-      if (l.search[1] === 'p') {
-        var decoded = l.search.slice(1).split('&').map(function(s) { 
-          return s.replace(/~and~/g, '&') 
-        }).filter(function(v) {
-          return v.indexOf('p=') === 0;
-        })[0];
-        if (decoded) {
-          var path = decoded.split('=')[1];
-          window.history.replaceState(null, null, l.pathname.slice(0, -1) + (path ? '/' + path : '') + l.hash);
-        }
-      }
-    }(window.location));
-</script>
   </head>
   <body> 
     <main-app-container>
