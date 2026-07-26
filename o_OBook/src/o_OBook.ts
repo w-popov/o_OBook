@@ -211,7 +211,7 @@ export class o_OBook extends LitElement {
     </svg>
 
     <header class="navbar sticky-top bg-dark flex-md-nowrap p-0 shadow" data-bs-theme="dark">
-      <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6 text-white" href=${import.meta.env.BASE_URL}>Справочник</a>
+      <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6 text-white" href="${import.meta.env.BASE_URL}">Справочник</a>
       <ul class="navbar-nav flex-row d-md-none">
         <li class="nav-item text-nowrap">
           <button
@@ -256,7 +256,7 @@ export class o_OBook extends LitElement {
                   <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-body-secondary text-uppercase">
                   <span>Си</span>
                   </h6>
-                  <a class="nav-link d-flex align-items-center gap-2 active" aria-current="page" href=${`${import.meta.env.BASE_URL}p-cbits`} @click=${this.closeOffcanvas}>
+                  <a class="nav-link d-flex align-items-center gap-2 active" aria-current="page" href="${import.meta.env.BASE_URL}p-cbits" @click=${this.closeOffcanvas}>
                     Битовые операции
                   </a>
                 </li>
