@@ -14,6 +14,24 @@ export class XHome extends LitElement {
       padding: 1rem;
       border-radius: 0.375rem;
     }
+    /* скролл меню */
+    @media (min-width: 992px) {
+        .sticky-scroll-menu {
+            max-height: calc(100vh - 4rem);
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+        .sticky-scroll-menu::-webkit-scrollbar {
+            width: 5px;
+        }
+        .sticky-scroll-menu::-webkit-scrollbar-thumb {
+            background-color: #e8e8e9;
+            border-radius: 3px;
+        }
+        .sticky-scroll-menu::-webkit-scrollbar-thumb:hover {
+            background-color: #ced4da;
+        }
+    } // конец скролл меню
   `;
 
   private _scrollToSection(e: Event) {
@@ -43,7 +61,7 @@ export class XHome extends LitElement {
               <div class="card-header bg-light fw-bold py-3">
                 Содержание
               </div>
-              <div class="list-group list-group-flush" @click=${this._scrollToSection}>
+              <div class="list-group list-group-flush sticky-scroll-menu" @click=${this._scrollToSection}>
                 <a href="#and" class="list-group-item list-group-item-action">Побитовое И (&amp;)</a>
                 <a href="#or" class="list-group-item list-group-item-action">Побитовое ИЛИ (|)</a>
                 <a href="#xor" class="list-group-item list-group-item-action">Исключающее ИЛИ (^)</a>
@@ -188,7 +206,7 @@ int main() {
               <section id="shifts" class="mb-2">
                 <h4 class="fw-bold text-primary">5. Битовые сдвиги (Shifts)</h4>
                 <p class="text-muted">
-                  Операторы сдвигают битовую сетку числа влево <code>&lt;&lt;</code> или вправо <code>&gt;&gt;</code> на указанное количество позиций. Сдвиг влево на $N$ бит аналогичен умножению на $2^N$, а сдвиг вправо — целочисленному делению на $2^N$.
+                  Операторы сдвигают битовую сетку числа влево <code>&lt;&lt;</code> или вправо <code>&gt;&gt;</code> на указанное количество позиций. Сдвиг влево на N бит аналогичен умножению на 2^N, а сдвиг вправо — целочисленному делению на 2^N.
                 </p>
                 <div class="bg-light p-3 rounded mb-3">
                   <pre class="m-0"><code>  00000101 (5) &lt;&lt; 2 позиций\n---------\n  00010100 (20)</code></pre>

@@ -31,6 +31,9 @@ export class XHome extends LitElement {
                 Центр «Пуск» МФТИ 2026.
                 Гр. Д01-134 <br /> "Инженер умных систем".
             </p>
+            <div class="d-flex justify-content-end">
+                <p class="text-muted" style="font-size: 0.8rem;">Попов В.Г.</p>
+            </div>
             </div>
         </div>
       </div>
