@@ -1,8 +1,443 @@
 import { LitElement, html, css, type TemplateResult, unsafeCSS } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import bootstrapStyles from 'bootstrap/dist/css/bootstrap.min.css?inline';
 import prismTheme from 'prismjs/themes/prism-tomorrow.css?inline'; 
 import { highlightC } from '../highlighter.js';
+
+/////////////////////////////////////////////////////////
+type BitwiseOp = '&' | '|' | '^' | '~' | '<<' | '>>';
+type BitWidth = 8 | 16 | 32 | 64;
+type InputMode = 'dec' | 'hex' | 'bin';
+
+@customElement('bit-calculator')
+export class BitCalculator extends LitElement {
+ 
+  protected override createRenderRoot(): HTMLElement {
+    return this;
+  }
+
+  static override styles = css`
+    :host {
+      display: block;
+      font-family: var(--bs-body-font-family, system-ui, sans-serif);
+    }
+    .bit-row {
+      display: flex;
+      align-items: center;
+      font-family: var(--bs-font-monospace, monospace);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .row-label {
+      width: 70px;
+      flex-shrink: 0;
+      color: #6c757d;
+    }
+    .cells-container {
+      display: flex;
+      gap: 0;
+    }
+    .bit-cell {
+      width: 24px;
+      text-align: center;
+      display: inline-block;
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+    }
+    .index-cell {
+      color: #6c757d;
+      font-size: 0.65rem;
+      font-weight: bold;
+    }
+    .btn-xs {
+      padding: 0px 3px;
+      font-size: 0.6rem;
+      line-height: 1.1;
+      border-radius: 2px;
+    }
+    .input-compact {
+      width: 6rem !important;
+      min-width: 0 !important;
+      font-size: 0.75rem !important;
+      padding: 2px 4px !important;
+    }
+    .select-compact {
+      width: auto !important;
+      font-size: 0.7rem !important;
+      padding: 2px 4px !important;
+    }
+    .label-compact {
+      font-size: 0.65rem !important;
+      margin-bottom: 2px !important;
+    }
+    .preview-compact {
+      font-size: 0.6rem !important;
+      line-height: 1.2 !important;
+    }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] { 
+      -moz-appearance: textfield; 
+    }
+    .controls-row {
+      margin-top: 8px;
+    }
+
+    .mbinputs-8
+    {
+      margin-bottom: 8px !important;
+    }
+  `;
+
+  @state() private valueA: bigint = 12n;
+  @state() private valueB: bigint = 5n;
+  @state() private inputStrA = '12';
+  @state() private inputStrB = '5';
+  @state() private modeA: InputMode = 'dec';
+  @state() private modeB: InputMode = 'dec';
+  @state() private operation: BitwiseOp = '&';
+  @state() private bitWidth: BitWidth = 8;
+
+  private _getMask(): bigint {
+    return (1n << BigInt(this.bitWidth)) - 1n;
+  }
+
+  private _applyMask(val: bigint): bigint {
+    return val & this._getMask();
+  }
+
+  private _calculateResult(): bigint {
+    const mask = this._getMask();
+    const a = BigInt(this.valueA) & mask;
+    const b = BigInt(this.valueB) & mask;
+    
+    let res: bigint = 0n;
+
+    switch (this.operation) {
+      case '&': res = a & b; break;
+      case '|': res = a | b; break;
+      case '^': res = a ^ b; break;
+      case '~': res = ~a; break; 
+      case '<<': res = a << b; break;
+      case '>>': res = a >> b; break; 
+    }
+
+    return res & mask;
+  }
+
+  private _formatValue(val: bigint, mode: InputMode): string {
+    const masked = this._applyMask(val);
+    switch (mode) {
+      case 'bin': return masked.toString(2).padStart(this.bitWidth, '0');
+      case 'hex': return '0x' + masked.toString(16).toUpperCase();
+      case 'dec': return masked.toString(10);
+    }
+  }
+
+  private _getAlternativeView(val: bigint, currentMode: InputMode): string {
+    const masked = this._applyMask(val);
+    switch (currentMode) {
+      case 'dec':
+        return `HEX: 0x${masked.toString(16).toUpperCase()} | BIN: ${masked.toString(2).padStart(this.bitWidth, '0')}`;
+      case 'hex':
+        return `DEC: ${masked.toString(10)} | BIN: ${masked.toString(2).padStart(this.bitWidth, '0')}`;
+      case 'bin':
+        return `DEC: ${masked.toString(10)} | HEX: 0x${masked.toString(16).toUpperCase()}`;
+    }
+  }
+
+  private _filterInput(str: string, mode: InputMode): string {
+    switch (mode) {
+      case 'bin': {
+        let filtered = str.replace(/[^01]/g, '');
+        if (filtered.length > this.bitWidth) {
+          filtered = filtered.slice(0, this.bitWidth);
+        }
+        return filtered;
+      }
+      case 'hex': {
+        let hasPrefix = str.toLowerCase().startsWith('0x');
+        let cleaned = hasPrefix ? str.slice(2) : str;
+        let filtered = cleaned.replace(/[^0-9a-fA-F]/g, '');
+        const maxLen = Math.ceil(this.bitWidth / 4);
+        if (filtered.length > maxLen) {
+          filtered = filtered.slice(0, maxLen);
+        }
+        return hasPrefix ? '0x' + filtered : filtered;
+      }
+      case 'dec': {
+        let filtered = str.replace(/[^0-9]/g, '');
+        const maxVal = this._getMask();
+        const maxStr = maxVal.toString();
+        if (filtered.length > maxStr.length) {
+          filtered = filtered.slice(0, maxStr.length);
+        }
+        if (filtered && BigInt(filtered) > maxVal) {
+          filtered = maxStr;
+        }
+        return filtered;
+      }
+    }
+  }
+
+  private _parseInput(str: string, mode: InputMode): bigint {
+    try {
+      let cleanStr = str.trim();
+      if (cleanStr === '') return 0n;
+
+      switch (mode) {
+        case 'bin':
+          cleanStr = cleanStr.replace(/[^01]/g, '');
+          return cleanStr ? BigInt('0b' + cleanStr) : 0n;
+        case 'hex':
+          cleanStr = cleanStr.replace(/^0x/i, '').replace(/[^0-9a-fA-F]/g, '');
+          return cleanStr ? BigInt('0x' + cleanStr) : 0n;
+        case 'dec':
+          cleanStr = cleanStr.replace(/[^0-9]/g, '');
+          return cleanStr ? BigInt(cleanStr) : 0n;
+      }
+    } catch {
+      return 0n;
+    }
+  }
+
+  private _changeMode(target: 'A' | 'B', newMode: InputMode): void {
+    if (target === 'A') {
+      this.modeA = newMode;
+      const masked = this._applyMask(this.valueA);
+      this.inputStrA = newMode === 'hex' 
+        ? masked.toString(16).toUpperCase() 
+        : (newMode === 'bin' ? masked.toString(2) : masked.toString(10));
+    } else {
+      this.modeB = newMode;
+      const masked = this._applyMask(this.valueB);
+      this.inputStrB = newMode === 'hex' 
+        ? masked.toString(16).toUpperCase() 
+        : (newMode === 'bin' ? masked.toString(2) : masked.toString(10));
+    }
+  }
+
+  private _renderBitIndexes(): TemplateResult {
+    const cells: TemplateResult[] = [];
+    const width = this.bitWidth;
+    let step = 4;
+    
+    if (width === 8) {
+      step = 1;
+    } else if (width === 16) {
+      step = 4;
+    } else if (width === 32) {
+      step = 4;
+    } else if (width === 64) {
+      step = 8;
+    }
+
+    for (let i = width - 1; i >= 0; i--) {
+      const showLabel = i === width - 1 || i === 0 || i % step === 0;
+      const label = showLabel ? i.toString() : '·';
+      cells.push(html`
+        <span class="bit-cell index-cell">${label}</span>
+      `);
+    }
+    return html`<div class="cells-container">${cells}</div>`;
+  }
+
+  private _renderBitRow(binaryStr: string, className = ''): TemplateResult {
+    const cells = binaryStr.split('').map(bit => html`
+      <span class="bit-cell ${className}">${bit}</span>
+    `);
+    return html`<div class="cells-container">${cells}</div>`;
+  }
+
+  private _renderInput(target: 'A' | 'B'): TemplateResult {
+    const mode = target === 'A' ? this.modeA : this.modeB;
+    const inputStr = target === 'A' ? this.inputStrA : this.inputStrB;
+    
+    if (mode === 'dec') {
+      const maxVal = Number(this._getMask());
+      return html`
+        <input 
+          type="number"
+          class="form-control form-control-sm text-center font-monospace input-compact"
+          .value=${inputStr}
+          min="0"
+          max=${maxVal}
+          @input=${(e: Event) => {
+            const val = (e.target as HTMLInputElement).value;
+            const filtered = this._filterInput(val, mode);
+            if (target === 'A') {
+              this.inputStrA = filtered;
+              this.valueA = this._parseInput(filtered, mode);
+            } else {
+              this.inputStrB = filtered;
+              this.valueB = this._parseInput(filtered, mode);
+            }
+          }}
+        />
+      `;
+    }
+    
+    return html`
+      <input 
+        type="text"
+        class="form-control form-control-sm text-center font-monospace input-compact"
+        .value=${inputStr}
+        @input=${(e: Event) => {
+          const val = (e.target as HTMLInputElement).value;
+          const filtered = this._filterInput(val, mode);
+          if (target === 'A') {
+            this.inputStrA = filtered;
+            this.valueA = this._parseInput(filtered, mode);
+            (e.target as HTMLInputElement).value = filtered;
+          } else {
+            this.inputStrB = filtered;
+            this.valueB = this._parseInput(filtered, mode);
+            (e.target as HTMLInputElement).value = filtered;
+          }
+        }}
+      />
+    `;
+  }
+
+  protected override render(): TemplateResult {
+    const result = this._calculateResult();
+    const isSingleOp = this.operation === '~';
+
+    const strA = this._formatValue(this.valueA, 'bin');
+    const strB = this._formatValue(this.valueB, 'bin');
+    const strResult = this._formatValue(result, 'bin');
+
+    const altA = this._getAlternativeView(this.valueA, this.modeA);
+    const altB = this._getAlternativeView(this.valueB, this.modeB);
+
+    return html`
+      <div class="card shadow-sm p-2">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="card-title mb-0 text-primary fw-bold" style="font-size: 0.85rem;">Калькулятор битовых операций</h6>
+          
+          <div class="d-flex align-items-center gap-1">
+            <label class="small text-muted text-nowrap mb-0 label-compact">Разрядность:</label>
+            <select class="form-select form-select-sm fw-bold bg-light select-compact" @change=${(e: Event) => { 
+              const newWidth = parseInt((e.target as HTMLSelectElement).value) as BitWidth;
+              this.bitWidth = newWidth;
+              this.inputStrA = this._filterInput(this.inputStrA, this.modeA);
+              this.inputStrB = this._filterInput(this.inputStrB, this.modeB);
+              this.valueA = this._parseInput(this.inputStrA, this.modeA);
+              this.valueB = this._parseInput(this.inputStrB, this.modeB);
+            }} .value=${String(this.bitWidth)}>
+              <option value="8">8 бит</option>
+              <option value="16">16 бит</option>
+              <option value="32">32 бит</option>
+              <option value="64">64 бит</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row g-1 align-items-end mb-2 controls-row">
+          
+          <div class="col-auto">
+            <div class="d-flex align-items-center justify-content-between mb-0">
+              <label class="form-label small fw-semibold mb-0 label-compact">Число A</label>
+              <div class="btn-group ms-1" role="group">
+                <button type="button" class="btn btn-xs ${this.modeA === 'dec' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('A', 'dec')}>DEC</button>
+                <button type="button" class="btn btn-xs ${this.modeA === 'hex' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('A', 'hex')}>HEX</button>
+                <button type="button" class="btn btn-xs ${this.modeA === 'bin' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('A', 'bin')}>BIN</button>
+              </div>
+            </div>
+            ${this._renderInput('A')}
+          </div>
+
+          <div class="col-auto">
+            <label class="form-label small fw-semibold mb-0 label-compact">Операция</label>
+            <select class="form-select form-select-sm text-center fw-bold bg-light select-compact" @change=${(e: Event) => { this.operation = (e.target as HTMLSelectElement).value as BitwiseOp; }} .value=${this.operation}>
+              <option value="&">&amp; (AND)</option>
+              <option value="|">| (OR)</option>
+              <option value="^">^ (XOR)</option>
+              <option value="~">~ (NOT)</option>
+              <option value="<<">&lt;&lt; (LSH)</option>
+              <option value=">>">&gt;&gt; (RSH)</option>
+            </select>
+          </div>
+
+          <div class="col-auto" ?hidden=${isSingleOp}>
+            <div class="d-flex align-items-center justify-content-between mb-0">
+              <label class="form-label small fw-semibold mb-0 label-compact">Число B</label>
+              <div class="btn-group ms-1" role="group">
+                <button type="button" class="btn btn-xs ${this.modeB === 'dec' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('B', 'dec')}>DEC</button>
+                <button type="button" class="btn btn-xs ${this.modeB === 'hex' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('B', 'hex')}>HEX</button>
+                <button type="button" class="btn btn-xs ${this.modeB === 'bin' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('B', 'bin')}>BIN</button>
+              </div>
+            </div>
+            ${this._renderInput('B')}
+          </div>
+
+          <div class="col-auto align-self-center ms-1 preview-compact text-muted lh-sm">
+            <div>A: <span class="text-dark">${altA}</span></div>
+            <div ?hidden=${isSingleOp}>B: <span class="text-dark">${altB}</span></div>
+          </div>
+        </div>
+
+        <div class="bg-light p-2 rounded mb-2 shadow-inner overflow-x-auto">
+          <div class="d-flex flex-column gap-1" style="min-width: max-content;">
+            
+            <div class="bit-row">
+              <span class="row-label" style="font-size: 0.7rem;">Бит:</span>
+              ${this._renderBitIndexes()}
+            </div>
+            
+            <hr class="my-1 border-light opacity-50">
+            
+            <div class="bit-row">
+              <span class="row-label">A:</span>
+              ${this._renderBitRow(strA, 'text-success fw-bold')}
+            </div>
+            
+            <div class="bit-row" ?hidden=${isSingleOp}>
+              <span class="row-label">B:</span>
+              ${this._renderBitRow(strB, 'text-success fw-bold')}
+            </div>
+            
+            <hr class="my-1 border-secondary opacity-25">
+            
+            <div class="bit-row">
+              <span class="row-label fw-bold text-primary">Итог:</span>
+              ${this._renderBitRow(strResult, 'text-primary fw-bold')}
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-light d-flex justify-content-around text-center mb-0 py-1 small">
+          <div>
+            <div class="text-muted text-uppercase" style="font-size: 0.6rem;">Decimal</div>
+            <div class="fw-bold text-dark" style="font-size: 0.85rem;">${result.toString()}</div>
+          </div>
+          <div class="border-start mx-1"></div>
+          <div>
+            <div class="text-muted text-uppercase" style="font-size: 0.6rem;">Hexadecimal</div>
+            <div class="fw-bold text-dark font-monospace" style="font-size: 0.85rem;">${this._formatValue(result, 'hex')}</div>
+          </div>
+          <div class="border-start mx-1"></div>
+          <div>
+            <div class="text-muted text-uppercase" style="font-size: 0.6rem;">Binary</div>
+            <div class="fw-bold text-dark font-monospace" style="font-size: 0.85rem;">${this._formatValue(result, 'bin')}</div>
+          </div>
+        </div>
+
+      </div>
+    `;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'bit-calculator': BitCalculator;
+  }
+}
+////////////////////////////////////////////////////////
+
 
 @customElement('p-cbits')
 export class XHome extends LitElement {
@@ -68,6 +503,9 @@ export class XHome extends LitElement {
               <div class="list-group list-group-flush sticky-scroll-menu overflow-y-auto" 
                      style="max-height: calc(100vh - 10rem);" 
                      @click=${this._scrollToSection}>
+                <a href="#calculator" class="list-group-item list-group-item-action fw-semibold text-primary">
+                Битовый калькулятор
+                </a>
                 <a href="#and" class="list-group-item list-group-item-action">Побитовое И (&amp;)</a>
                 <a href="#or" class="list-group-item list-group-item-action">Побитовое ИЛИ (|)</a>
                 <a href="#xor" class="list-group-item list-group-item-action">Исключающее ИЛИ (^)</a>
@@ -190,7 +628,9 @@ export class XHome extends LitElement {
           <!-- ОСНОВНОЙ КОНТЕНТ (Занимает 9 колонок) -->
           <main class="col-lg-9 order-lg-2">
             <div class="p-4 bg-white border rounded shadow-sm">
-              
+               <section id="calculator" class="mb-5">
+                <bit-calculator></bit-calculator>
+              </section>
               <!-- 1. Побитовое И (AND) -->
               <section id="and" class="mb-5">
                 <h4 class="fw-bold text-primary">1. Побитовое И (AND)</h4>
