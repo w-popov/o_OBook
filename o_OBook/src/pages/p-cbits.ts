@@ -9,6 +9,13 @@ type BitwiseOp = '&' | '|' | '^' | '~' | '<<' | '>>';
 type BitWidth = 8 | 16 | 32 | 64;
 type InputMode = 'dec' | 'hex' | 'bin';
 
+interface OperandState {
+  value: bigint;
+  inputStr: string;
+  mode: InputMode;
+  signed: boolean;
+}
+
 @customElement('bit-calculator')
 export class BitCalculator extends LitElement {
  
@@ -56,7 +63,7 @@ export class BitCalculator extends LitElement {
       border-radius: 2px;
     }
     .input-compact {
-      width: 6rem !important;
+      width: 7rem !important;
       min-width: 0 !important;
       font-size: 0.75rem !important;
       padding: 2px 4px !important;
@@ -71,8 +78,9 @@ export class BitCalculator extends LitElement {
       margin-bottom: 2px !important;
     }
     .preview-compact {
-      font-size: 0.6rem !important;
+      font-size: 0.5rem !important;
       line-height: 1.2 !important;
+      white-space: nowrap;
     }
     input[type=number]::-webkit-inner-spin-button, 
     input[type=number]::-webkit-outer-spin-button { 
@@ -85,196 +93,297 @@ export class BitCalculator extends LitElement {
     .controls-row {
       margin-top: 8px;
     }
-
-    .mbinputs-8
-    {
-      margin-bottom: 8px !important;
+    .form-check-input {
+      width: 0.8em;
+      height: 0.8em;
+      margin-top: 0.2em;
+      cursor: pointer;
+    }
+    .form-check-label {
+      font-size: 0.6rem;
+      cursor: pointer;
+    }
+    .operand-col {
+      min-width: 140px;
+    }
+    .operation-col {
+      min-width: 80px;
+    }
+    .result-binary {
+      max-width: 200px;
+      overflow-x: auto;
+      white-space: nowrap;
+      font-size: 0.75rem !important;
+    }
+    .result-binary::-webkit-scrollbar {
+      height: 4px;
+    }
+    .result-binary::-webkit-scrollbar-track {
+      background: #e9ecef;
+      border-radius: 2px;
+    }
+    .result-binary::-webkit-scrollbar-thumb {
+      background: #adb5bd;
+      border-radius: 2px;
+    }
+    .result-binary::-webkit-scrollbar-thumb:hover {
+      background: #6c757d;
     }
   `;
 
-  @state() private valueA: bigint = 12n;
-  @state() private valueB: bigint = 5n;
-  @state() private inputStrA = '12';
-  @state() private inputStrB = '5';
-  @state() private modeA: InputMode = 'dec';
-  @state() private modeB: InputMode = 'dec';
+  @state() private operandA: OperandState = {
+    value: 12n,
+    inputStr: '12',
+    mode: 'dec',
+    signed: true
+  };
+
+  @state() private operandB: OperandState = {
+    value: 5n,
+    inputStr: '5',
+    mode: 'dec',
+    signed: true
+  };
+
   @state() private operation: BitwiseOp = '&';
   @state() private bitWidth: BitWidth = 8;
 
-  private _getMask(): bigint {
+  private get mask(): bigint {
     return (1n << BigInt(this.bitWidth)) - 1n;
   }
 
-  private _applyMask(val: bigint): bigint {
-    return val & this._getMask();
+  private get signBit(): bigint {
+    return 1n << BigInt(this.bitWidth - 1);
   }
 
-  private _calculateResult(): bigint {
-    const mask = this._getMask();
-    const a = BigInt(this.valueA) & mask;
-    const b = BigInt(this.valueB) & mask;
+  private clamp(val: bigint): bigint {
+    return val & this.mask;
+  }
+
+  private toUnsigned(val: bigint, signed: boolean): bigint {
+    return (signed && val < 0n) ? this.mask + val + 1n : this.clamp(val);
+  }
+
+  private toSigned(val: bigint, signed: boolean): bigint {
+    if (!signed) return this.clamp(val);
+    const v = this.clamp(val);
+    return (v & this.signBit) ? v - this.mask - 1n : v;
+  }
+
+  private calculateResult(): bigint {
+    const a = this.toUnsigned(this.operandA.value, this.operandA.signed);
+    const b = this.toUnsigned(this.operandB.value, this.operandB.signed);
     
-    let res: bigint = 0n;
-
     switch (this.operation) {
-      case '&': res = a & b; break;
-      case '|': res = a | b; break;
-      case '^': res = a ^ b; break;
-      case '~': res = ~a; break; 
-      case '<<': res = a << b; break;
-      case '>>': res = a >> b; break; 
+      case '&': return this.clamp(a & b);
+      case '|': return this.clamp(a | b);
+      case '^': return this.clamp(a ^ b);
+      case '~': return this.clamp(~a);
+      case '<<': return this.clamp(a << b);
+      case '>>': return this.arithmeticShiftRight(a, b);
+      default: return 0n;
     }
-
-    return res & mask;
   }
 
-  private _formatValue(val: bigint, mode: InputMode): string {
-    const masked = this._applyMask(val);
+  private arithmeticShiftRight(a: bigint, b: bigint): bigint {
+    if (b >= BigInt(this.bitWidth)) {
+      return (this.operandA.signed && (a & this.signBit)) ? this.mask : 0n;
+    }
+    
+    let res = a >> b;
+    
+    if (this.operandA.signed && (a & this.signBit)) {
+      const shift = Number(b);
+      const extMask = this.mask << BigInt(this.bitWidth - shift);
+      res |= extMask & this.mask;
+    }
+    
+    return this.clamp(res);
+  }
+
+  private formatValue(val: bigint, mode: InputMode, signed: boolean): string {
+    const masked = this.clamp(this.toUnsigned(val, signed));
+    
     switch (mode) {
       case 'bin': return masked.toString(2).padStart(this.bitWidth, '0');
       case 'hex': return '0x' + masked.toString(16).toUpperCase();
-      case 'dec': return masked.toString(10);
+      case 'dec': return signed ? val.toString() : masked.toString();
     }
   }
 
-  private _getAlternativeView(val: bigint, currentMode: InputMode): string {
-    const masked = this._applyMask(val);
-    switch (currentMode) {
-      case 'dec':
-        return `HEX: 0x${masked.toString(16).toUpperCase()} | BIN: ${masked.toString(2).padStart(this.bitWidth, '0')}`;
-      case 'hex':
-        return `DEC: ${masked.toString(10)} | BIN: ${masked.toString(2).padStart(this.bitWidth, '0')}`;
-      case 'bin':
-        return `DEC: ${masked.toString(10)} | HEX: 0x${masked.toString(16).toUpperCase()}`;
-    }
+  private getFullView(val: bigint, signed: boolean): string {
+    const masked = this.clamp(this.toUnsigned(val, signed));
+    const dec = signed ? val.toString() : masked.toString();
+    const hex = '0x' + masked.toString(16).toUpperCase();
+    
+    return `DEC: ${dec} | HEX: ${hex}`;
   }
 
-  private _filterInput(str: string, mode: InputMode): string {
+  private filterInput(str: string, mode: InputMode, signed: boolean): string {
     switch (mode) {
-      case 'bin': {
-        let filtered = str.replace(/[^01]/g, '');
-        if (filtered.length > this.bitWidth) {
-          filtered = filtered.slice(0, this.bitWidth);
-        }
-        return filtered;
-      }
+      case 'bin': return str.replace(/[^01]/g, '').slice(0, this.bitWidth);
       case 'hex': {
-        let hasPrefix = str.toLowerCase().startsWith('0x');
-        let cleaned = hasPrefix ? str.slice(2) : str;
-        let filtered = cleaned.replace(/[^0-9a-fA-F]/g, '');
-        const maxLen = Math.ceil(this.bitWidth / 4);
-        if (filtered.length > maxLen) {
-          filtered = filtered.slice(0, maxLen);
-        }
+        const hasPrefix = str.toLowerCase().startsWith('0x');
+        const cleaned = hasPrefix ? str.slice(2) : str;
+        const filtered = cleaned.replace(/[^0-9a-fA-F]/g, '').slice(0, Math.ceil(this.bitWidth / 4));
         return hasPrefix ? '0x' + filtered : filtered;
       }
-      case 'dec': {
-        let filtered = str.replace(/[^0-9]/g, '');
-        const maxVal = this._getMask();
-        const maxStr = maxVal.toString();
-        if (filtered.length > maxStr.length) {
-          filtered = filtered.slice(0, maxStr.length);
-        }
-        if (filtered && BigInt(filtered) > maxVal) {
-          filtered = maxStr;
-        }
-        return filtered;
-      }
+      case 'dec': return this.filterDecimalInput(str, signed);
     }
   }
 
-  private _parseInput(str: string, mode: InputMode): bigint {
+  private filterDecimalInput(str: string, signed: boolean): string {
+    let filtered = str.replace(/[^0-9-]/g, '');
+    
+    if (filtered.indexOf('-') > 0) {
+      filtered = '-' + filtered.replace(/-/g, '');
+    }
+    
+    if (!filtered || filtered === '-') return filtered;
+    
     try {
-      let cleanStr = str.trim();
-      if (cleanStr === '') return 0n;
+      const val = BigInt(filtered);
+      const maxPositive = signed ? (1n << BigInt(this.bitWidth - 1)) - 1n : this.mask;
+      const maxNegative = signed ? -(1n << BigInt(this.bitWidth - 1)) : 0n;
+      
+      if (val > maxPositive) return maxPositive.toString();
+      if (val < maxNegative) return maxNegative.toString();
+      
+      return filtered;
+    } catch {
+      return '0';
+    }
+  }
+
+  private parseInput(str: string, mode: InputMode, signed: boolean): bigint {
+    try {
+      const cleanStr = str.trim();
+      if (!cleanStr || cleanStr === '-') return 0n;
 
       switch (mode) {
-        case 'bin':
-          cleanStr = cleanStr.replace(/[^01]/g, '');
-          return cleanStr ? BigInt('0b' + cleanStr) : 0n;
-        case 'hex':
-          cleanStr = cleanStr.replace(/^0x/i, '').replace(/[^0-9a-fA-F]/g, '');
-          return cleanStr ? BigInt('0x' + cleanStr) : 0n;
-        case 'dec':
-          cleanStr = cleanStr.replace(/[^0-9]/g, '');
-          return cleanStr ? BigInt(cleanStr) : 0n;
+        case 'bin': {
+          const bits = cleanStr.replace(/[^01]/g, '');
+          if (!bits) return 0n;
+          const val = BigInt('0b' + bits);
+          return signed ? this.toSigned(val, true) : this.clamp(val);
+        }
+        case 'hex': {
+          const hex = cleanStr.replace(/^0x/i, '').replace(/[^0-9a-fA-F]/g, '');
+          if (!hex) return 0n;
+          const val = BigInt('0x' + hex);
+          return signed ? this.toSigned(val, true) : this.clamp(val);
+        }
+        case 'dec': {
+          let dec = cleanStr.replace(/[^0-9-]/g, '');
+          if (dec.indexOf('-') > 0) {
+            dec = '-' + dec.replace(/-/g, '');
+          }
+          return dec ? BigInt(dec) : 0n;
+        }
       }
     } catch {
       return 0n;
     }
   }
 
-  private _changeMode(target: 'A' | 'B', newMode: InputMode): void {
-    if (target === 'A') {
-      this.modeA = newMode;
-      const masked = this._applyMask(this.valueA);
-      this.inputStrA = newMode === 'hex' 
-        ? masked.toString(16).toUpperCase() 
-        : (newMode === 'bin' ? masked.toString(2) : masked.toString(10));
-    } else {
-      this.modeB = newMode;
-      const masked = this._applyMask(this.valueB);
-      this.inputStrB = newMode === 'hex' 
-        ? masked.toString(16).toUpperCase() 
-        : (newMode === 'bin' ? masked.toString(2) : masked.toString(10));
-    }
-  }
-
-  private _renderBitIndexes(): TemplateResult {
-    const cells: TemplateResult[] = [];
-    const width = this.bitWidth;
-    let step = 4;
+  private updateOperand(target: 'A' | 'B', updates: Partial<OperandState>): void {
+    const operand = target === 'A' ? this.operandA : this.operandB;
+    const newState = { ...operand, ...updates };
     
-    if (width === 8) {
-      step = 1;
-    } else if (width === 16) {
-      step = 4;
-    } else if (width === 32) {
-      step = 4;
-    } else if (width === 64) {
-      step = 8;
+    if (target === 'A') {
+      this.operandA = newState;
+    } else {
+      this.operandB = newState;
     }
+  }
 
-    for (let i = width - 1; i >= 0; i--) {
-      const showLabel = i === width - 1 || i === 0 || i % step === 0;
-      const label = showLabel ? i.toString() : '·';
-      cells.push(html`
-        <span class="bit-cell index-cell">${label}</span>
-      `);
-    }
+  private handleInputChange(target: 'A' | 'B', rawValue: string): void {
+    const operand = target === 'A' ? this.operandA : this.operandB;
+    const filtered = this.filterInput(rawValue, operand.mode, operand.signed);
+    const parsed = this.parseInput(filtered, operand.mode, operand.signed);
+    
+    this.updateOperand(target, { inputStr: filtered, value: parsed });
+  }
+
+  private changeMode(target: 'A' | 'B', newMode: InputMode): void {
+    const operand = target === 'A' ? this.operandA : this.operandB;
+    const masked = this.clamp(this.toUnsigned(operand.value, operand.signed));
+    
+    const newInputStr = newMode === 'hex' 
+      ? masked.toString(16).toUpperCase()
+      : newMode === 'bin' 
+        ? masked.toString(2) 
+        : (operand.signed ? operand.value.toString() : masked.toString());
+    
+    this.updateOperand(target, { mode: newMode, inputStr: newInputStr });
+  }
+
+  private handleSignedChange(target: 'A' | 'B', checked: boolean): void {
+    const operand = target === 'A' ? this.operandA : this.operandB;
+    const newValue = this.parseInput(operand.inputStr, operand.mode, checked);
+    this.updateOperand(target, { signed: checked, value: newValue });
+  }
+
+  private handleBitWidthChange(newWidth: BitWidth): void {
+    this.bitWidth = newWidth;
+    
+    ['A', 'B'].forEach(target => {
+      const operand = target === 'A' ? this.operandA : this.operandB;
+      const filtered = this.filterInput(operand.inputStr, operand.mode, operand.signed);
+      const parsed = this.parseInput(filtered, operand.mode, operand.signed);
+      this.updateOperand(target as 'A' | 'B', { inputStr: filtered, value: parsed });
+    });
+  }
+
+  private renderBitIndexes(): TemplateResult {
+    const step = this.bitWidth === 8 ? 1 : this.bitWidth === 64 ? 8 : 4;
+    
+    const cells = Array.from({ length: this.bitWidth }, (_, i) => {
+      const bit = this.bitWidth - 1 - i;
+      const showLabel = bit === this.bitWidth - 1 || bit === 0 || bit % step === 0;
+      return html`<span class="bit-cell index-cell">${showLabel ? bit : '·'}</span>`;
+    });
+    
     return html`<div class="cells-container">${cells}</div>`;
   }
 
-  private _renderBitRow(binaryStr: string, className = ''): TemplateResult {
-    const cells = binaryStr.split('').map(bit => html`
-      <span class="bit-cell ${className}">${bit}</span>
-    `);
+  private renderBitRow(binaryStr: string, className = ''): TemplateResult {
+    const cells = binaryStr.split('').map(bit => 
+      html`<span class="bit-cell ${className}">${bit}</span>`
+    );
     return html`<div class="cells-container">${cells}</div>`;
   }
 
-  private _renderInput(target: 'A' | 'B'): TemplateResult {
-    const mode = target === 'A' ? this.modeA : this.modeB;
-    const inputStr = target === 'A' ? this.inputStrA : this.inputStrB;
+  private renderInput(target: 'A' | 'B'): TemplateResult {
+    const { mode, inputStr, signed } = target === 'A' ? this.operandA : this.operandB;
     
     if (mode === 'dec') {
-      const maxVal = Number(this._getMask());
+      const maxPositive = signed ? (1n << BigInt(this.bitWidth - 1)) - 1n : this.mask;
+      const maxNegative = signed ? -(1n << BigInt(this.bitWidth - 1)) : 0n;
+      
       return html`
         <input 
           type="number"
           class="form-control form-control-sm text-center font-monospace input-compact"
           .value=${inputStr}
-          min="0"
-          max=${maxVal}
+          min=${Number(maxNegative)}
+          max=${Number(maxPositive)}
           @input=${(e: Event) => {
-            const val = (e.target as HTMLInputElement).value;
-            const filtered = this._filterInput(val, mode);
-            if (target === 'A') {
-              this.inputStrA = filtered;
-              this.valueA = this._parseInput(filtered, mode);
-            } else {
-              this.inputStrB = filtered;
-              this.valueB = this._parseInput(filtered, mode);
+            const input = e.target as HTMLInputElement;
+            let val = input.value;
+            const numVal = parseInt(val);
+            
+            if (!isNaN(numVal)) {
+              if (numVal > Number(maxPositive)) {
+                val = maxPositive.toString();
+                input.value = val;
+              } else if (numVal < Number(maxNegative)) {
+                val = maxNegative.toString();
+                input.value = val;
+              }
             }
+            
+            this.handleInputChange(target, val);
           }}
         />
       `;
@@ -286,32 +395,61 @@ export class BitCalculator extends LitElement {
         class="form-control form-control-sm text-center font-monospace input-compact"
         .value=${inputStr}
         @input=${(e: Event) => {
-          const val = (e.target as HTMLInputElement).value;
-          const filtered = this._filterInput(val, mode);
-          if (target === 'A') {
-            this.inputStrA = filtered;
-            this.valueA = this._parseInput(filtered, mode);
-            (e.target as HTMLInputElement).value = filtered;
-          } else {
-            this.inputStrB = filtered;
-            this.valueB = this._parseInput(filtered, mode);
-            (e.target as HTMLInputElement).value = filtered;
-          }
+          const input = e.target as HTMLInputElement;
+          const filtered = this.filterInput(input.value, mode, signed);
+          input.value = filtered;
+          this.handleInputChange(target, filtered);
         }}
       />
     `;
   }
 
+  private renderOperandControls(target: 'A' | 'B', label: string): TemplateResult {
+    const operand = target === 'A' ? this.operandA : this.operandB;
+    const fullView = this.getFullView(operand.value, operand.signed);
+    
+    return html`
+      <div class="col-auto operand-col">
+        <div class="d-flex align-items-center gap-1 mb-1">
+          <label class="form-label small fw-semibold mb-0 label-compact">${label}</label>
+          <div class="form-check mb-0">
+            <input 
+              type="checkbox" 
+              class="form-check-input" 
+              id="signed${target}" 
+              .checked=${operand.signed}
+              @change=${(e: Event) => this.handleSignedChange(target, (e.target as HTMLInputElement).checked)}
+            />
+            <label class="form-check-label" for="signed${target}">Знаковое</label>
+          </div>
+        </div>
+        <div class="d-flex gap-1 align-items-center">
+          <div class="btn-group" role="group">
+            ${(['dec', 'hex', 'bin'] as InputMode[]).map(mode => html`
+              <button 
+                type="button" 
+                class="btn btn-xs ${operand.mode === mode ? 'btn-secondary' : 'btn-outline-secondary'}"
+                @click=${() => this.changeMode(target, mode)}
+              >${mode.toUpperCase()}</button>
+            `)}
+          </div>
+          ${this.renderInput(target)}
+        </div>
+        <div class="preview-compact text-muted mt-1">
+          <span class="text-dark">${fullView}</span>
+        </div>
+      </div>
+    `;
+  }
+
   protected override render(): TemplateResult {
-    const result = this._calculateResult();
+    const resultUnsigned = this.calculateResult();
+    const resultSigned = this.toSigned(resultUnsigned, this.operandA.signed || this.operandB.signed);
     const isSingleOp = this.operation === '~';
 
-    const strA = this._formatValue(this.valueA, 'bin');
-    const strB = this._formatValue(this.valueB, 'bin');
-    const strResult = this._formatValue(result, 'bin');
-
-    const altA = this._getAlternativeView(this.valueA, this.modeA);
-    const altB = this._getAlternativeView(this.valueB, this.modeB);
+    const strA = this.formatValue(this.operandA.value, 'bin', this.operandA.signed);
+    const strB = this.formatValue(this.operandB.value, 'bin', this.operandB.signed);
+    const strResult = this.formatValue(resultUnsigned, 'bin', false);
 
     return html`
       <div class="card shadow-sm p-2">
@@ -320,39 +458,28 @@ export class BitCalculator extends LitElement {
           
           <div class="d-flex align-items-center gap-1">
             <label class="small text-muted text-nowrap mb-0 label-compact">Разрядность:</label>
-            <select class="form-select form-select-sm fw-bold bg-light select-compact" @change=${(e: Event) => { 
-              const newWidth = parseInt((e.target as HTMLSelectElement).value) as BitWidth;
-              this.bitWidth = newWidth;
-              this.inputStrA = this._filterInput(this.inputStrA, this.modeA);
-              this.inputStrB = this._filterInput(this.inputStrB, this.modeB);
-              this.valueA = this._parseInput(this.inputStrA, this.modeA);
-              this.valueB = this._parseInput(this.inputStrB, this.modeB);
-            }} .value=${String(this.bitWidth)}>
-              <option value="8">8 бит</option>
-              <option value="16">16 бит</option>
-              <option value="32">32 бит</option>
-              <option value="64">64 бит</option>
+            <select 
+              class="form-select form-select-sm fw-bold bg-light select-compact" 
+              @change=${(e: Event) => this.handleBitWidthChange(parseInt((e.target as HTMLSelectElement).value) as BitWidth)} 
+              .value=${String(this.bitWidth)}
+            >
+              ${([8, 16, 32, 64] as BitWidth[]).map(w => html`
+                <option value=${w}>${w} бит</option>
+              `)}
             </select>
           </div>
         </div>
 
-        <div class="row g-1 align-items-end mb-2 controls-row">
+        <div class="row g-2 align-items-start mb-2 controls-row">
+          ${this.renderOperandControls('A', 'Число A')}
           
-          <div class="col-auto">
-            <div class="d-flex align-items-center justify-content-between mb-0">
-              <label class="form-label small fw-semibold mb-0 label-compact">Число A</label>
-              <div class="btn-group ms-1" role="group">
-                <button type="button" class="btn btn-xs ${this.modeA === 'dec' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('A', 'dec')}>DEC</button>
-                <button type="button" class="btn btn-xs ${this.modeA === 'hex' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('A', 'hex')}>HEX</button>
-                <button type="button" class="btn btn-xs ${this.modeA === 'bin' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('A', 'bin')}>BIN</button>
-              </div>
-            </div>
-            ${this._renderInput('A')}
-          </div>
-
-          <div class="col-auto">
+          <div class="col-auto operation-col">
             <label class="form-label small fw-semibold mb-0 label-compact">Операция</label>
-            <select class="form-select form-select-sm text-center fw-bold bg-light select-compact" @change=${(e: Event) => { this.operation = (e.target as HTMLSelectElement).value as BitwiseOp; }} .value=${this.operation}>
+            <select 
+              class="form-select form-select-sm text-center fw-bold bg-light select-compact" 
+              @change=${(e: Event) => { this.operation = (e.target as HTMLSelectElement).value as BitwiseOp; }} 
+              .value=${this.operation}
+            >
               <option value="&">&amp; (AND)</option>
               <option value="|">| (OR)</option>
               <option value="^">^ (XOR)</option>
@@ -362,70 +489,60 @@ export class BitCalculator extends LitElement {
             </select>
           </div>
 
-          <div class="col-auto" ?hidden=${isSingleOp}>
-            <div class="d-flex align-items-center justify-content-between mb-0">
-              <label class="form-label small fw-semibold mb-0 label-compact">Число B</label>
-              <div class="btn-group ms-1" role="group">
-                <button type="button" class="btn btn-xs ${this.modeB === 'dec' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('B', 'dec')}>DEC</button>
-                <button type="button" class="btn btn-xs ${this.modeB === 'hex' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('B', 'hex')}>HEX</button>
-                <button type="button" class="btn btn-xs ${this.modeB === 'bin' ? 'btn-secondary' : 'btn-outline-secondary'}" @click=${() => this._changeMode('B', 'bin')}>BIN</button>
-              </div>
-            </div>
-            ${this._renderInput('B')}
-          </div>
-
-          <div class="col-auto align-self-center ms-1 preview-compact text-muted lh-sm">
-            <div>A: <span class="text-dark">${altA}</span></div>
-            <div ?hidden=${isSingleOp}>B: <span class="text-dark">${altB}</span></div>
+          <div class="col-auto operand-col" ?hidden=${isSingleOp}>
+            ${this.renderOperandControls('B', 'Число B')}
           </div>
         </div>
 
         <div class="bg-light p-2 rounded mb-2 shadow-inner overflow-x-auto">
           <div class="d-flex flex-column gap-1" style="min-width: max-content;">
-            
             <div class="bit-row">
               <span class="row-label" style="font-size: 0.7rem;">Бит:</span>
-              ${this._renderBitIndexes()}
+              ${this.renderBitIndexes()}
             </div>
             
             <hr class="my-1 border-light opacity-50">
             
             <div class="bit-row">
               <span class="row-label">A:</span>
-              ${this._renderBitRow(strA, 'text-success fw-bold')}
+              ${this.renderBitRow(strA, 'text-success fw-bold')}
             </div>
             
             <div class="bit-row" ?hidden=${isSingleOp}>
               <span class="row-label">B:</span>
-              ${this._renderBitRow(strB, 'text-success fw-bold')}
+              ${this.renderBitRow(strB, 'text-success fw-bold')}
             </div>
             
             <hr class="my-1 border-secondary opacity-25">
             
             <div class="bit-row">
               <span class="row-label fw-bold text-primary">Итог:</span>
-              ${this._renderBitRow(strResult, 'text-primary fw-bold')}
+              ${this.renderBitRow(strResult, 'text-primary fw-bold')}
             </div>
           </div>
         </div>
 
         <div class="bg-light d-flex justify-content-around text-center mb-0 py-1 small">
           <div>
-            <div class="text-muted text-uppercase" style="font-size: 0.6rem;">Decimal</div>
-            <div class="fw-bold text-dark" style="font-size: 0.85rem;">${result.toString()}</div>
+            <div class="text-muted text-uppercase" style="font-size: 0.6rem;">Беззнаковый</div>
+            <div class="fw-bold text-dark" style="font-size: 0.85rem;">${resultUnsigned.toString()}</div>
+          </div>
+          <div class="border-start mx-1"></div>
+          <div>
+            <div class="text-muted text-uppercase" style="font-size: 0.6rem;">Со знаком</div>
+            <div class="fw-bold text-dark" style="font-size: 0.85rem;">${resultSigned.toString()}</div>
           </div>
           <div class="border-start mx-1"></div>
           <div>
             <div class="text-muted text-uppercase" style="font-size: 0.6rem;">Hexadecimal</div>
-            <div class="fw-bold text-dark font-monospace" style="font-size: 0.85rem;">${this._formatValue(result, 'hex')}</div>
+            <div class="fw-bold text-dark font-monospace" style="font-size: 0.85rem;">${this.formatValue(resultUnsigned, 'hex', false)}</div>
           </div>
           <div class="border-start mx-1"></div>
-          <div>
+          <div style="min-width: 0; flex: 1;">
             <div class="text-muted text-uppercase" style="font-size: 0.6rem;">Binary</div>
-            <div class="fw-bold text-dark font-monospace" style="font-size: 0.85rem;">${this._formatValue(result, 'bin')}</div>
+            <div class="fw-bold text-dark font-monospace result-binary">${this.formatValue(resultUnsigned, 'bin', false)}</div>
           </div>
         </div>
-
       </div>
     `;
   }
